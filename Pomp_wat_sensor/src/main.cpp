@@ -12,7 +12,22 @@
 #define BUTT_2 4
 #define BUTT_E 15
 #define PIN_POMP  16  //pin detect pomp
+#define INFO_LED_PIN 17                                                                 //led pin
+/*-----------------------------------------------------------------*/
+#define ERROR_CODE_SIZE 4
+#define ERROR_CODE_LONG 0
+#define ERROR_CODE_SHORT 1 
 
+int MOTOR_ERROR_CODE[ERROR_CODE_SIZE] = {ERROR_CODE_SHORT, ERROR_CODE_SHORT,  ERROR_CODE_LONG, ERROR_CODE_LONG};
+int SENSOR_ERROR_CODE[ERROR_CODE_SIZE] = {ERROR_CODE_SHORT, ERROR_CODE_SHORT, ERROR_CODE_SHORT, ERROR_CODE_LONG};
+int WATER_ERROR_CODE[ERROR_CODE_SIZE] = {ERROR_CODE_SHORT, ERROR_CODE_SHORT, ERROR_CODE_SHORT, ERROR_CODE_SHORT};
+typedef enum {
+  MOTOR_ERROR,                               //error EEPROM memory blinking code is ..--
+  SENSOR_ERROR,                              //start data transfer  blinking code is ...-
+  WATER_ERROR,                               //start data transfer  blinking code is ....
+  } app_status;
+app_status a_status;
+/*-----------------------------------------------------------------*/
 void drawMenu();
 void checkIfDownButtonIsPressed();
 void checkIfUpButtonIsPressed();
@@ -23,24 +38,22 @@ void turnBacklightOff();
 void resetDefaults();
 static void pomp_g();
 static void f_cactus_pop();
+static void f_error();
+static void info_blink(int code_array[]);
 
 boolean backlight = true;
 int contrast=50;
-
 int menuitem = 1;
 int page = 1;
-
 volatile boolean up = false;
 volatile boolean down = false;
 volatile boolean middle = false;
-
 int downButtonState = 0;
 int upButtonState = 0;  
 int selectButtonState = 0;          
 int lastDownButtonState = 0;
 int lastSelectButtonState = 0;
 int lastUpButtonState = 0;
-
 Adafruit_PCD8544 display = Adafruit_PCD8544(D8, D7, D6, D5, D2);
 
 void setup() {
@@ -52,9 +65,10 @@ void setup() {
 
   digitalWrite(DL,LOW); //Turn Backlight ON
   digitalWrite(PIN_POMP,LOW);
-  
+
   Serial.begin(115200);
   
+  Serial.println("Go work");
   display.begin();      
   display.setContrast(contrast); //Set contrast to 50
   display.clearDisplay(); 
@@ -158,7 +172,7 @@ void drawMenu(){
     } else {
       display.setTextColor(BLACK, WHITE);
     }
-    display.print(">Contrast");
+    display.print(">Kaktus");
     display.setCursor(0, 25);
     if (menuitem==2) {
       display.setTextColor(WHITE, BLACK);
@@ -189,10 +203,11 @@ void drawMenu(){
     display.print("CONTRAST");
     display.drawFastHLine(0,10,83,BLACK);
     display.setCursor(5, 15);
-    display.print("Value");
+    display.print("PUSH");
     display.setTextSize(2);
     display.setCursor(5, 25);
-    display.print(contrast);
+    // display.print(contrast);
+    f_cactus_pop();
  
     display.setTextSize(2);
     display.display();
@@ -225,9 +240,39 @@ static void pomp_g(){
 
 static void f_cactus_pop(){
   bool button_s = false;
-  if(button_s == true){
-    pomp_g(); //work to the pomp
-  } else {
+  if(BUTT_E == false){
+    a_status = MOTOR_ERROR;
     //back to menu
+    // Serial.println("Kaktus work");
+  } else {
+    pomp_g(); //work to the pomp
+    Serial.println("Kaktus work");
   }
+}
+
+static void f_error(){
+  switch(a_status){
+    case MOTOR_ERROR:
+      info_blink(MOTOR_ERROR_CODE);
+      break;
+    case SENSOR_ERROR:
+      info_blink(SENSOR_ERROR_CODE);
+      break;
+    case WATER_ERROR:
+      info_blink(WATER_ERROR_CODE);
+      break;
+    default:
+      break;
+  }
+}
+
+static void info_blink(int code_array[]) {
+  for (int i=0; i<ERROR_CODE_SIZE; i++) {
+    int code = code_array[i];
+    digitalWrite(INFO_LED_PIN, HIGH);                                                     // turn the LED on (HIGH is the voltage level)
+    delay(code == ERROR_CODE_LONG?1000:500);                                              // wait for a second
+    digitalWrite(INFO_LED_PIN, LOW);                                                      // turn the LED off by making the voltage LOW
+    delay(500); 
+  }
+  delay(2000); 
 }
